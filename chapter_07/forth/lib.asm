@@ -281,7 +281,8 @@ parse_int:
 .end:
   ret
 
-
+; rdi: source buffer, rsi: destination buffer, rdx: buffer length
+; return rax: destination buffer
 string_copy:
     push rdi
     push rsi

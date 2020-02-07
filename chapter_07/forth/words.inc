@@ -26,6 +26,13 @@ native 'lit', lit
     add pc, 8
     jmp next
 
+native 'branch', branch
+    push qword here
+    jmp next
+
+native '0branch', 0branch
+    push qword here
+    jmp next
 
 
 
@@ -49,7 +56,7 @@ native 'state', state
 ; ############
 
 colon ':', colon
-    dq xt_ibuf, xt_word
+    dq xt_ibuf, xt_word, xt_drop
     dq xt_lit, 0, xt_ibuf, xt_create
     dq xt_lit, i_docol, xt_comma
     dq xt_state, xt_lit, 1, xt_c_write
@@ -66,6 +73,7 @@ native ',', comma
     mov [rcx], rdi
     add rcx, 8
     mov [here], rcx
+    jmp next
 
 native 'c,', c_comma
     mov rcx, [here]
@@ -73,6 +81,7 @@ native 'c,', c_comma
     mov [rcx], sil
     inc rcx
     mov [here], rcx
+    jmp next
 
 ; ( flags name -- )
 native 'create', create
@@ -83,10 +92,13 @@ native 'create', create
     add rcx, 8
 
     pop rdi             ; pointer to name str
-    mov rsi, rcx      ; pointer to destination
+    mov rsi, rcx        ; pointer to destination
+    mov rdx, 1024       ; max buffer length
+    push rcx            ; save rcx
     call string_copy
     mov rdi, rax
     call string_length
+    pop rcx             ; recover rcx
     add rcx, rax   
     inc rcx             ; add 1 because null terminated str
 

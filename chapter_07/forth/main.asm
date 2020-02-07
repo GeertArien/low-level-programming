@@ -9,6 +9,7 @@ section .data
 %include "words.inc"
 
 global _start
+global w_create
 extern find_word
 extern cfa
 
@@ -39,6 +40,10 @@ next:
     jmp [w]
 
 interpreter_loop:
+    mov sil, [state]
+    test sil, sil
+    jnz .compiler_loop
+
     mov rdi, input_buf
     mov rsi, 1024
     call read_word
@@ -49,7 +54,8 @@ interpreter_loop:
     jz .end
 
     mov rdi, input_buf
-    mov rsi, last_item
+    mov rsi, last_word
+.find_int:
     call find_word
     test rax, rax
     jz .invalid_word
@@ -75,6 +81,68 @@ interpreter_loop:
     mov rax, 60         ; use exit system call to shut down correctly
     xor rdi, rdi
     syscall
+
+.compiler_loop:
+    mov rdi, input_buf
+    mov rsi, 1024
+    call read_word
+
+    mov rdi, input_buf
+    call string_length
+    test rax, rax
+    jz .end
+
+    mov rdi, input_buf
+    mov rsi, last_word
+    call find_word
+    test rax, rax
+    jz .not_word
+    mov rdi, rax
+    call cfa
+    mov rdi, rax
+    dec rdi             ; decrease by 1 for flag address
+    mov sil, [rdi]
+    test sil, sil
+    jz .add_word
+
+    mov [program_stub], rax             ; interpret word
+    mov pc, program_stub
+    jmp next
+
+.add_word:
+    mov rdi, [here]
+    mov [rdi], rax
+    add rdi, 8
+    mov [here], rdi
+    jmp .compiler_loop
+
+.not_word:
+    mov rdi, input_buf
+    call parse_int
+    test rdx, rdx
+    jz .invalid_input
+
+    mov rdi, [here]
+    sub rdi, 8
+    mov rdi, [rdi]
+    mov rsi, xt_branch
+    cmp rdi, rsi
+    je .add_number
+    mov rsi, xt_0branch
+    cmp rdi, rsi
+    je .add_number
+
+    mov rdi, [here]
+    mov qword[rdi], xt_lit
+    add rdi, 8
+    mov [here], rdi
+
+.add_number:
+    mov rdi, [here]
+    mov [rdi], rax
+    add rdi, 8
+    mov [here], rdi
+    jmp .compiler_loop
 
 _start:
     mov [stack_base], rsp   ; save stack base address
