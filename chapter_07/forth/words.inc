@@ -2,9 +2,14 @@
 ; internal
 ; ############
 
+section .data
+program_stub: dq 0
+
 native 'init', init
     mov [stack_base], rsp   ; save stack base address
     mov rstack, rstack_start
+    mov qword[program_stub], xt_interpreter
+    mov pc, program_stub
     jmp next
 
 native 'docol', docol
@@ -24,17 +29,42 @@ native 'bye', bye
     xor rdi, rdi
     syscall
 
+; ( call num a1 a2 a3 a4 a5 a6 -- new rax )
+native 'syscall', syscall_l
+    pop r9
+    pop r8
+    pop r10
+    pop rdx
+    pop rsi
+    pop rdi
+    pop rax
+    syscall
+    jmp next
+
 native 'lit', lit
     push qword[pc]
     add pc, 8
     jmp next
 
+; ( xt -- )
+native 'execute', execute
+    pop w
+    jmp [w]
+
 native 'branch', branch
-    push qword here
+    mov rdi, [pc]
+    add pc, 8
+    add pc, rdi
     jmp next
 
 native '0branch', 0branch
-    push qword here
+    pop rax
+    test rax, rax
+    jnz .no_offset
+    mov rdi, [pc]
+    add pc, rdi
+.no_offset:
+    add pc, 8
     jmp next
 
 
@@ -154,7 +184,19 @@ native '.', dot
     call print_newline
     jmp next
 
+native '>r', from_r
+    push qword[rstack]
+    add rstack, 8
+    jmp next
+    
+native 'r>', to_r
+    sub rstack, 8
+    pop qword[rstack]
+    jmp next
 
+native 'r@', r_copy
+    push qword[rstack]
+    jmp next
 
 ; arithmetic
 ; ############
@@ -280,16 +322,12 @@ native 'emit', emit
     call print_char
     jmp next
 
+; ( str -- num len )
 native 'number', number
-    mov rdi, input_buf
-    mov rsi, 1024
-    call read_word
-    mov rdi, input_buf
+    pop rdi
     call parse_int
-    test rdx, rdx
-    jz .end
     push rax
-.end:
+    push rdx
     jmp next
 
 native 'word', word
@@ -306,6 +344,13 @@ native 'count', count
     call string_length
     push rax
     jmp next
+
+; ( str -- )
+native 'prints', prints
+    pop rdi
+    call print_error
+    jmp next
+
 
 ; (dest_addres src_address -- length)
 native 'string copy', string_copy
@@ -348,14 +393,104 @@ native 'c@', c_read
     jmp next
 
 
+; dictionary
+; ############
+
+; rdi points to string we try to find
+; rsi points to last value of list
+; ( str -- header_addr )
+native 'find', find
+    pop rdi
+    mov rsi, last_word
+.loop:
+    test rsi, rsi
+    jz .no_match
+    push rdi
+    push rsi
+    add rsi, 8
+    call string_equals
+    pop rsi
+    pop rdi
+    test rax, rax
+    jnz .match
+    mov rsi, [rsi]
+    jmp .loop
+
+.no_match:
+    push 0
+    jmp next
+
+.match:
+    push rsi
+    jmp next
+
+; ( word_address -- xt )
+native 'cfa', cfa
+    pop rdi
+    add rdi, 8
+    push rdi
+    call string_length
+    pop rdi
+    add rax, rdi
+    add rax, 2     ; 1b for 0 of zero terminated str and 1b for header flags
+    push rax
+    jmp next
+
 
 
 
 ; interpreter
 ; ############
 
+colon 'interpreter', interpreter
+.start:
+    dq xt_ibuf, xt_word             
+    branch0 .end             
 
+    dq xt_ibuf, xt_find, xt_dup
+    branch0 .test_number
+    dq xt_cfa
 
+    dq xt_state, xt_c_read
+    branch0 .execute_word
 
+    dq xt_dup, xt_lit, 1, xt_min, xt_c_read         ; put flag value on stack
+    dq xt_not_l
+    branch0 .execute_word
+
+    dq xt_comma, 
+    branch .start       ; add address to word
+
+.execute_word:
+    dq xt_execute, 
+    branch .start
+    
+.test_number:  
+    dq xt_drop, xt_ibuf, xt_number          ; parse number
+    branch0 .invalid_input
+
+    dq xt_state, xt_c_read
+    branch0 .start          ; number already on stack so back to start    
+
+.compile_number:
+    dq xt_here, xt_lit, 8, xt_min, xt_read
+    dq xt_lit, xt_branch, xt_equal, xt_not_l
+    branch0 .add_number
+
+    dq xt_here, xt_lit, 8, xt_min, xt_read
+    dq xt_lit, xt_0branch, xt_equal, xt_not_l
+    branch0 .add_number
+
+    dq xt_lit, xt_lit, xt_comma         ; add xt_lit to word
+
+.add_number:
+    dq xt_comma                         ; add number to word
+    branch .start
+
+.invalid_input:
+    dq xt_lit, error_msg, xt_prints
+
+.end:  
+    dq xt_bye, xt_exit
 
 
