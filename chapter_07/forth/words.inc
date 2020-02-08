@@ -2,6 +2,11 @@
 ; internal
 ; ############
 
+native 'init', init
+    mov [stack_base], rsp   ; save stack base address
+    mov rstack, rstack_start
+    jmp next
+
 native 'docol', docol
     sub rstack, 8
     mov [rstack], pc
@@ -13,8 +18,6 @@ native 'exit', exit
     mov pc, [rstack]
     add rstack, 8
     jmp next
-
-
 
 native 'bye', bye
     mov rax, 60         ; use exit system call to shut down correctly
@@ -39,8 +42,16 @@ native '0branch', 0branch
 ; variables
 ; ############
 
-native 'here', here_l
+native 'mem', mem
+    push qword user_mem
+    jmp next
+
+native 'here', here
     push qword here
+    jmp next
+
+native 'last word', last_word
+    push qword last_word
     jmp next
 
 native 'ibuf', ibuf
@@ -67,13 +78,11 @@ colon ';', semicolon, 1
     dq xt_state, xt_lit, 0, xt_c_write
     dq xt_exit
 
-native ',', comma
-    mov rcx, [here]
-    pop rdi
-    mov [rcx], rdi
-    add rcx, 8
-    mov [here], rcx
-    jmp next
+colon ',', comma
+    dq xt_here, xt_read, xt_swap, xt_write
+    dq xt_here, xt_dup, xt_read 
+    dq xt_lit, 8, xt_plus, xt_write
+    dq xt_exit
 
 native 'c,', c_comma
     mov rcx, [here]
@@ -84,31 +93,17 @@ native 'c,', c_comma
     jmp next
 
 ; ( flags name -- )
-native 'create', create
-    mov rcx, [here]
-    mov rdi, [last_word]
-    mov [rcx], rdi
-    mov [last_word], rcx
-    add rcx, 8
+colon 'create', create
+    dq xt_last_word, xt_read                        ; save last_word value
+    dq xt_last_word, xt_here, xt_read, xt_write     ; write here addres to last_word
+    dq xt_comma                                     ; write prev last_word addres to here
 
-    pop rdi             ; pointer to name str
-    mov rsi, rcx        ; pointer to destination
-    mov rdx, 1024       ; max buffer length
-    push rcx            ; save rcx
-    call string_copy
-    mov rdi, rax
-    call string_length
-    pop rcx             ; recover rcx
-    add rcx, rax   
-    inc rcx             ; add 1 because null terminated str
+    dq xt_here, xt_read, xt_swap, xt_string_copy        ; copy string to here address
+    dq xt_lit, 1, xt_plus, xt_here, xt_read, xt_plus   ; increase here addres by length + 1
+    dq xt_here, xt_swap, xt_write                       ; update here address
 
-    pop rdi             ; flags in lowest byte
-    mov [rcx], sil
-    inc rcx
-    
-    mov [here], rcx
-    jmp next
-
+    dq xt_c_comma       ; add flags to here addres
+    dq xt_exit
 
 
 ; stack manipulation
@@ -187,6 +182,14 @@ native '/', divi
     xor rdx, rdx
     div rdi
     push rax
+    jmp next
+
+native '%', quot
+    pop rdi,
+    pop rax,
+    xor rdx, rdx
+    div rdi
+    push rdx
     jmp next
 
 native '=', equal
@@ -298,17 +301,26 @@ native 'word', word
     push rax
     jmp next
 
+native 'count', count
+    pop rdi
+    call string_length
+    push rax
+    jmp next
 
-
-
+; (dest_addres src_address -- length)
+native 'string copy', string_copy
+    pop rdi             ; pointer to src str
+    pop rsi             ; pointer to destination
+    mov rdx, 1024       ; max buffer length
+    call string_copy
+    mov rdi, rax
+    call string_length
+    push rax
+    jmp next
 
 
 ; memory
 ; ############
-
-native 'mem', mem
-    push qword user_mem
-    jmp next
 
 native '!', write
     pop rdi     ; data
@@ -337,6 +349,10 @@ native 'c@', c_read
 
 
 
+
+
+; interpreter
+; ############
 
 
 
