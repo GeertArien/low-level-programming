@@ -3,7 +3,7 @@ LD = ld
 ASFLAGS = -f elf64
 
 program: main.o lib.o
-	$(LD) -o program main.o lib.o dict.o
+	$(LD) -o program main.o lib.o
 
 main.o: main.asm
 	$(AS) $(ASFLAGS) -o main.o main.asm

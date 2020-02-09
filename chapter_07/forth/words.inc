@@ -473,11 +473,13 @@ colon 'interpreter', interpreter
     branch0 .start          ; number already on stack so back to start    
 
 .compile_number:
-    dq xt_here, xt_lit, 8, xt_min, xt_read
+    dq xt_here, xt_read, 
+    dq xt_lit, 8, xt_min, xt_read
     dq xt_lit, xt_branch, xt_equal, xt_not_l
     branch0 .add_number
 
-    dq xt_here, xt_lit, 8, xt_min, xt_read
+    dq xt_here, xt_read, 
+    dq xt_lit, 8, xt_min, xt_read
     dq xt_lit, xt_0branch, xt_equal, xt_not_l
     branch0 .add_number
 
