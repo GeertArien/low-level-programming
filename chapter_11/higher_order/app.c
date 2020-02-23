@@ -5,6 +5,7 @@
 #include "list.h"
 #include "algorithm.h"
 #include "math.h"
+#include "for_all.h"
 
 static int* array_read(size_t* out_count) {
     int* array;
@@ -159,7 +160,10 @@ int main(void) {
     iterate_test(list);
     save_load_test(list);
     serialize_test(list);
+
+    for_all_test(list);
     
+    puts("");
     list_free(list);
     free(array);
 

@@ -4,7 +4,7 @@ LD = gcc
 
 all: app
 
-app: app.o math.o list.o algorithm.o
+app: app.o math.o list.o algorithm.o for_all.o
 	$(LD) $^ -o $@
 
 %.o: %.c %.h
