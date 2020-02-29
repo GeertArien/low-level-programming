@@ -58,35 +58,15 @@ bool operand(void) {
     return accept('+') || accept('-') || accept('*');
 }
 
-bool arithmetic_el(void) {
-    char const* copy = stream;
-
-    if (operand()) {
-        if (decimal()) {
-            return true;
-        }
-
-        stream = copy;
-    }
-
-    return false;
-}
-
-bool arithmetic_chain(void) {
-    if (arithmetic_el()) {
-        arithmetic_chain();
-        return true;
-    }
-
-    return false;
-}
-
 bool arithmetic_expr(void) {
     if (decimal()) {
-        arithmetic_chain();
+        if (operand()) {
+            return arithmetic_expr();
+        }
+
         return true;
     }
-    
+
     return false;
 }
 
