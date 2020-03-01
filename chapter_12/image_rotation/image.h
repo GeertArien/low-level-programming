@@ -7,6 +7,7 @@ struct pixel {
     uint8_t b, g, r;
 };
 
+// start of pixels is top left corner
 struct image {
     uint64_t width, height;
     struct pixel* data;

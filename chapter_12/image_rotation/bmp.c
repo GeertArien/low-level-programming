@@ -34,7 +34,6 @@ static struct bmp_header create_header(const struct image* const img) {
 
 enum read_status from_bmp(FILE* in, struct image* const img) {
     struct bmp_header header;
-    size_t p_count;
     size_t i, j;
     long padding;
     
@@ -48,12 +47,7 @@ enum read_status from_bmp(FILE* in, struct image* const img) {
         return READ_INVALID_SIGNATURE;
     }
 
-
-    // use image create
-    img->height = header.biHeight;
-    img->width = header.biWidth;
-    p_count = header.biHeight * header.biWidth;
-    img->data = (struct pixel*) malloc(p_count * sizeof(struct pixel));
+    *img = create(header.biWidth, header.biHeight);
     
     fseek(in, (long) header.bfDataOffset, SEEK_SET);
 
@@ -63,7 +57,10 @@ enum read_status from_bmp(FILE* in, struct image* const img) {
         padding = 4 - padding;
     }
     
-    for (i = 0; i < img->height; ++i) {
+    // start of bmp data is bottom left corner
+    i = img->height;
+    do {
+        --i;
         long offset = i * img->width;
         for (j = 0; j < img->width; ++j) {
             if (fread(img->data + offset + j, sizeof(struct pixel), 1, in) < 1) {
@@ -71,7 +68,7 @@ enum read_status from_bmp(FILE* in, struct image* const img) {
             }
         }
         fseek(in, padding, SEEK_CUR);
-    }
+    } while (i != 0);
 
     return READ_OK;
 }
@@ -98,7 +95,10 @@ enum write_status to_bmp(FILE* out, const struct image* const img) {
         return WRITE_ERROR;
     }
 
-    for (i = 0; i < img->height; ++i) {
+    // start of bmp data is bottom left corner
+    i = img->height;
+    do {
+        --i;
         long offset = i * img->width;
         for (j = 0; j < img->width; ++j) {
             if (fwrite(img->data + offset + j, sizeof(struct pixel), 1, out) < 1) {
@@ -106,7 +106,7 @@ enum write_status to_bmp(FILE* out, const struct image* const img) {
             }
         }
         fseek(out, padding, SEEK_CUR);
-    }
+    } while (i != 0);
 
     return WRITE_OK;
 }
