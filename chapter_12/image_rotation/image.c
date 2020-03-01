@@ -2,9 +2,37 @@
 #include <string.h>
 #include <malloc.h>
 
-struct pixel16 {
-    uint16_t b, g, r;
-};
+typedef void (pixel_fn)(struct pixel* const, const struct pixel* const);
+
+static void max(struct pixel* const target, const struct pixel* const other) {
+    if (target->b < other->b) target->b = other->b;
+    if (target->g < other->g) target->g = other->g;
+    if (target->r < other->r) target->r = other->r;
+}
+
+static void min(struct pixel* const target, const struct pixel* const other) {
+    if (target->b > other->b) target->b = other->b;
+    if (target->g > other->g) target->g = other->g;
+    if (target->r > other->r) target->r = other->r;
+}
+
+static void add(struct pixel* const target, const struct pixel* const val) {
+    target->b += val->b;
+    target->g += val->g;
+    target->r += val->r;
+}
+
+static void divide(struct pixel* const target, const uint8_t div) {
+    target->b = target->b / div;
+    target->g = target->g / div;
+    target->r = target->r / div;
+}
+
+static void add_divided(struct pixel* const target, const struct pixel* const val) {
+    struct pixel cpy = *val;
+    divide(&cpy, 9);
+    add(target, &cpy);
+}
 
 static void copy_borders(struct image* const img, const struct image* const src) {
     size_t i;
@@ -21,30 +49,32 @@ static void copy_borders(struct image* const img, const struct image* const src)
     }
 }
 
-static void max(struct pixel* const target, const struct pixel* const other) {
-    if (target->b < other->b) target->b = other->b;
-    if (target->g < other->g) target->g = other->g;
-    if (target->r < other->r) target->r = other->r;
-}
+static struct image window_algorithm(const struct image* const src, const struct pixel init_value, pixel_fn* fn) {
+    size_t i, j;
+    struct image img = create(src->width, src->height);
 
-static void min(struct pixel* const target, const struct pixel* const other) {
-    if (target->b > other->b) target->b = other->b;
-    if (target->g > other->g) target->g = other->g;
-    if (target->r > other->r) target->r = other->r;
-}
+    copy_borders(&img, src);
 
-static void add(struct pixel16* const target, const struct pixel* const val) {
-    target->b += val->b;
-    target->g += val->g;
-    target->r += val->r;
-}
+    for (i = 1; i < img.height - 1; ++i) {
+        size_t offset = i * img.width;
+        const size_t offset_min = offset - img.width;
+        const size_t offset_plus = offset + img.width;
+        for (j = 1; j < img.width - 1; ++j) {
+            struct pixel value = init_value;
+            fn(&value, src->data + offset_min + j - 1);
+            fn(&value, src->data + offset_min + j);
+            fn(&value, src->data + offset_min + j + 1);
+            fn(&value, src->data + offset + j - 1);
+            fn(&value, src->data + offset + j);
+            fn(&value, src->data + offset + j + 1);
+            fn(&value, src->data + offset_plus + j - 1);
+            fn(&value, src->data + offset_plus + j);
+            fn(&value, src->data + offset_plus + j + 1);
+            img.data[offset + j] = value;
+        }
+    }
 
-static struct pixel divide(struct pixel16* const target, const uint16_t div) {
-    struct pixel result;
-    result.b = target->b / div;
-    result.g = target->g / div;
-    result.r = target->r / div;
-    return result;
+    return img;
 }
 
 struct image create(uint64_t width, uint64_t height) {
@@ -78,83 +108,13 @@ struct image rotate(const struct image* const src) {
 }
 
 struct image blur(const struct image* const src) {
-    size_t i, j;
-    struct image img = create(src->width, src->height);
-
-    copy_borders(&img, src);
-
-    for (i = 1; i < img.height - 1; ++i) {
-        size_t offset = i * img.width;
-        const size_t offset_min = offset - img.width;
-        const size_t offset_plus = offset + img.width;
-        for (j = 1; j < img.width - 1; ++j) {
-            struct pixel16 pix_add = { 0 };
-            add(&pix_add, src->data + offset_min + j - 1);
-            add(&pix_add, src->data + offset_min + j);
-            add(&pix_add, src->data + offset_min + j + 1);
-            add(&pix_add, src->data + offset + j - 1);
-            add(&pix_add, src->data + offset + j);
-            add(&pix_add, src->data + offset + j + 1);
-            add(&pix_add, src->data + offset_plus + j - 1);
-            add(&pix_add, src->data + offset_plus + j);
-            add(&pix_add, src->data + offset_plus + j + 1);
-            img.data[offset + j] = divide(&pix_add, 9);
-        }
-    }
-
-    return img;
+    return window_algorithm(src, (struct pixel) { 0, 0, 0 }, &add_divided);
 }
 
 struct image dilate(const struct image* const src) {
-    size_t i, j;
-    struct image img = create(src->width, src->height);
-
-    copy_borders(&img, src);
-
-    for (i = 1; i < img.height - 1; ++i) {
-        size_t offset = i * img.width;
-        const size_t offset_min = offset - img.width;
-        const size_t offset_plus = offset + img.width;
-        for (j = 1; j < img.width - 1; ++j) {
-            struct pixel value = src->data[offset + j];
-            min(&value, src->data + offset_min + j - 1);
-            min(&value, src->data + offset_min + j);
-            min(&value, src->data + offset_min + j + 1);
-            min(&value, src->data + offset + j - 1);
-            min(&value, src->data + offset + j + 1);
-            min(&value, src->data + offset_plus + j - 1);
-            min(&value, src->data + offset_plus + j);
-            min(&value, src->data + offset_plus + j + 1);
-            img.data[offset + j] = value;
-        }
-    }
-
-    return img;
+    return window_algorithm(src, (struct pixel) { 255, 255, 255 }, &min);
 }
 
 struct image erode(const struct image* const src) {
-    size_t i, j;
-    struct image img = create(src->width, src->height);
-
-    copy_borders(&img, src);
-
-    for (i = 1; i < img.height - 1; ++i) {
-        size_t offset = i * img.width;
-        const size_t offset_min = offset - img.width;
-        const size_t offset_plus = offset + img.width;
-        for (j = 1; j < img.width - 1; ++j) {
-            struct pixel value = src->data[offset + j];
-            max(&value, src->data + offset_min + j - 1);
-            max(&value, src->data + offset_min + j);
-            max(&value, src->data + offset_min + j + 1);
-            max(&value, src->data + offset + j - 1);
-            max(&value, src->data + offset + j + 1);
-            max(&value, src->data + offset_plus + j - 1);
-            max(&value, src->data + offset_plus + j);
-            max(&value, src->data + offset_plus + j + 1);
-            img.data[offset + j] = value;
-        }
-    }
-
-    return img;
+    return window_algorithm(src, (struct pixel) { 0, 0, 0 }, &max);
 }
