@@ -15,6 +15,10 @@ struct image {
 
 struct image create(uint64_t width, uint64_t height);
 void image_free(struct image* const img);
-struct image rotate(const struct image* const source);
+
+struct image rotate(const struct image* const src);
+struct image blur(const struct image* const src);
+struct image dilate(const struct image* const src);
+struct image erode(const struct image* const src);
 
 #endif
