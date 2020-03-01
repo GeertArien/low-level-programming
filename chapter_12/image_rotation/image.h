@@ -12,6 +12,7 @@ struct image {
     struct pixel* data;
 };
 
+struct image create(uint64_t width, uint64_t height);
 void image_free(struct image* const img);
 struct image rotate(const struct image* const source);
 

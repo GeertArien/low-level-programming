@@ -28,6 +28,7 @@ int main(void) {
     enum read_status r_status;
     enum write_status w_status;
     struct image img;
+    struct image rotated_img;
     FILE* file = fopen("test.bmp", "r");
 
     if (file == NULL) {
@@ -43,22 +44,24 @@ int main(void) {
         return 1;
     }
 
-    file = fopen("copy.bmp", "w");
+    rotated_img = rotate(&img);
+
+    file = fopen("rotated.bmp", "w");
     if (file == NULL) {
         puts("Unable to open file");
         fclose(file);
     }
 
-    w_status = to_bmp(file, &img);
+    w_status = to_bmp(file, &rotated_img);
     fclose(file);
+
+    image_free(&rotated_img);
+    image_free(&img);
 
     if (w_status != WRITE_OK) {
         print_write_error(w_status);
-        image_free(&img);
         return 1;
     }
-
-    image_free(&img);
 
     return 0;
 }

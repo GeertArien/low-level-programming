@@ -48,6 +48,8 @@ enum read_status from_bmp(FILE* in, struct image* const img) {
         return READ_INVALID_SIGNATURE;
     }
 
+
+    // use image create
     img->height = header.biHeight;
     img->width = header.biWidth;
     p_count = header.biHeight * header.biWidth;
