@@ -5,7 +5,7 @@ LD = gcc
 all: app
 
 app: app.o bmp.o image.o
-	$(LD) $^ -o $@
+	$(LD) $^ -o $@ -lm
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c $< -o $@

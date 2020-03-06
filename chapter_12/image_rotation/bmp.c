@@ -41,8 +41,6 @@ enum read_status from_bmp(FILE* in, struct image* const img) {
         return READ_INVALID_HEADER;
     }
 
-    print(&header);
-
     if (header.bfType != 0x4d42) {
         return READ_INVALID_SIGNATURE;
     }
@@ -51,7 +49,7 @@ enum read_status from_bmp(FILE* in, struct image* const img) {
     
     fseek(in, (long) header.bfDataOffset, SEEK_SET);
 
-    padding = img->width % 4;
+    padding = (img->width * sizeof(struct pixel)) % 4;
 
     if (padding != 0) {
         padding = 4 - padding;
@@ -78,8 +76,9 @@ enum write_status to_bmp(FILE* out, const struct image* const img) {
     long padding;
     uint32_t f_size;
     struct bmp_header header;
+    char pad_value = 0;
 
-    padding = img->width % 4;
+    padding = (img->width * sizeof(struct pixel)) % 4;
 
     if (padding != 0) {
         padding = 4 - padding; 
@@ -89,7 +88,6 @@ enum write_status to_bmp(FILE* out, const struct image* const img) {
 
     header = create_header(img);
     header.bfFileSize = f_size;
-    print(&header);
 
     if (fwrite(&header, sizeof(struct bmp_header), 1, out) < 1) {
         return WRITE_ERROR;
@@ -105,7 +103,7 @@ enum write_status to_bmp(FILE* out, const struct image* const img) {
                 return READ_INVALID_BITS;
             }
         }
-        fseek(out, padding, SEEK_CUR);
+        fwrite(&pad_value, 1, padding, out);
     } while (i != 0);
 
     return WRITE_OK;
