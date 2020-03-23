@@ -98,34 +98,85 @@ void sepia_c_inplace(struct image* const img) {
 }
 
 void sepia_asm_inplace(struct image* const img) {
-    uint32_t x, y;
+    const size_t size = img->width * img->height;
+    const size_t i_size = size - 4;
+    size_t i;
 
-    static const float c[12] = {
-        .393f, .349f, .272f, 0.f,
-        .769f, .686f, .543f, 0.f,
-        .189f, .168f, .131f, 0.f
+    static const float c0[12] = {
+        .393f, .349f, .272f, .393f,
+        .769f, .686f, .543f, .769f,
+        .189f, .168f, .131f, .189f
+    };
+
+    static const float c1[12] = {
+        .349f, .272f, .393f, .349f,
+        .686f, .543f, .769f, .686f,
+        .168f, .131f, .189f, .168f
+    };
+
+    static const float c2[12] = {
+        .272f, .393f, .349f, .272f,
+        .543f, .769f, .686f, .543f,
+        .131f, .189f, .168f, .131f
     };
     
-    for (y = 0; y < img->height; ++y) {
-        const size_t offset = y * img->width;
-        for (x = 0; x < img->width; ++x) {
-            struct pixel* p = img->data + offset + x;
+    for (i = 0; i < i_size; i = i + 4) {
+        struct pixel* p0 = img->data + i;
+        struct pixel* p1 = p0 + 1;
+        struct pixel* p2 = p1 + 1;
+        struct pixel* p3 = p2 + 1;
 
-            const float r = byte_to_float[p->r];
-            const float g = byte_to_float[p->g];
-            const float b = byte_to_float[p->b];
+        const float r0 = byte_to_float[p0->r];
+        const float g0 = byte_to_float[p0->g];
+        const float b0 = byte_to_float[p0->b];
 
-            float pix[12] = {
-                r, r, r, 0.f,
-                g, g, g, 0.f,
-                b, b, b, 0.f
-            };
+        const float r1 = byte_to_float[p1->r];
+        const float g1 = byte_to_float[p1->g];
+        const float b1 = byte_to_float[p1->b];
 
-            sse(pix, c);
+        const float r2 = byte_to_float[p2->r];
+        const float g2 = byte_to_float[p2->g];
+        const float b2 = byte_to_float[p2->b];
 
-            p->r = sat(pix[0]);
-            p->g = sat(pix[1]);
-            p->b = sat(pix[2]);
-        }
+        const float r3 = byte_to_float[p3->r];
+        const float g3 = byte_to_float[p3->g];
+        const float b3 = byte_to_float[p3->b];
+
+        float pix0[12] = {
+            r0, r0, r0, r1,
+            g0, g0, g0, g1,
+            b0, b0, b0, b1
+        };
+
+        float pix1[12] = {
+            r1, r1, r2, r2,
+            g1, g1, g2, g2,
+            b1, b1, b2, b2
+        };
+
+        float pix2[12] = {
+            r2, r3, r3, r3,
+            g2, g3, g3, g3,
+            b2, b3, b3, b3
+        };
+
+        sse(pix0, c0);
+        sse(pix1, c1);
+        sse(pix2, c2);
+
+        p0->r = sat(pix0[0]);
+        p0->g = sat(pix0[1]);
+        p0->b = sat(pix0[2]);
+        p1->r = sat(pix0[3]);
+
+        p1->g = sat(pix1[0]);
+        p1->b = sat(pix1[1]);
+        p2->r = sat(pix1[2]);
+        p2->g = sat(pix1[3]);
+
+        p2->b = sat(pix2[0]);
+        p3->r = sat(pix2[1]);
+        p3->g = sat(pix2[2]);
+        p3->b = sat(pix2[3]);
     }
 }
