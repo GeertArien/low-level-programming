@@ -44,6 +44,21 @@ struct image create(uint64_t width, uint64_t height) {
     return img;
 }
 
+struct image duplicate(const struct image* const src) {
+    size_t i, j;
+    struct image img = create(src->width, src->height);
+
+    for (i = 0; i < img.height; ++i) {
+        const size_t offset_y = i * img.width;
+        for (j = 0; j < img.width; ++j) {
+            const size_t offset = offset_y + j;
+            img.data[offset] = src->data[offset];
+        }
+    }
+
+    return img;
+}
+
 void image_free(struct image* const img) {
     if (img->data != NULL) {
         free(img->data);
@@ -71,7 +86,7 @@ static void sepia_one(struct pixel* const pixel) {
     pixel->b = sat(old.r * c[2][0] + old.g * c[2][1] + old.b * c[2][2]);
 }
 
-void sepia_c_inplace(struct image* img) {
+void sepia_c_inplace(struct image* const img) {
     uint32_t x, y;
     
     for (y = 0; y < img->height; ++y) {
@@ -82,7 +97,7 @@ void sepia_c_inplace(struct image* img) {
     }
 }
 
-void sepia_asm_inplace(struct image* img) {
+void sepia_asm_inplace(struct image* const img) {
     uint32_t x, y;
 
     static const float c[12] = {

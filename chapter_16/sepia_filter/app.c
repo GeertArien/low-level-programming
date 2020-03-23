@@ -1,11 +1,14 @@
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <stdio.h>
 #include "image.h"
 #include "bmp.h"
 
 static const char* input_file = "fam.bmp";
-static const char* sepia_file = "sepia.bmp";
+static const char* sepia_c_file = "sepia_c.bmp";
+static const char* sepia_asm_file = "sepia_asm.bmp";
 
-typedef struct image (image_function)(const struct image* const src);
+typedef void (sepia_fn)(struct image* const img);
 
 static void print_read_error(const enum read_status status) {
     switch (status) {
@@ -29,22 +32,36 @@ static void print_write_error(const enum write_status status) {
     }
 }
 
-static void test_sepia(const char* file_name, struct image* const src) {
+static void test_sepia(const char* file_name, const struct image* const src, sepia_fn* sepia) {
+    struct rusage r;
+    struct timeval start, end;
+    long res;
     FILE* file;
     enum write_status w_status;
+    struct image img = duplicate(src);
     
-    sepia_c_inplace(src);
+    getrusage(RUSAGE_SELF, &r);
+    start = r.ru_utime;
+    
+    sepia(&img);
+
+    getrusage(RUSAGE_SELF, &r);
+    end = r.ru_utime;
+
+    res = ((end.tv_sec - start.tv_sec) * 1000000L) + end.tv_usec -start.tv_usec;
+
+    printf("Time elapsed in microseconds: %ld\n", res);
 
     file = fopen(file_name, "w");
     if (file == NULL) {
         puts("Unable to open file");
-        //image_free(&img);
+        image_free(&img);
         return;
     }
 
-    w_status = to_bmp(file, src);
+    w_status = to_bmp(file, &img);
     fclose(file);
-    //image_free(&img);
+    image_free(&img);
     
     if (w_status != WRITE_OK) {
         print_write_error(w_status);
@@ -69,7 +86,11 @@ int main(void) {
         return 1;
     }
 
-    test_sepia(sepia_file, &img);
+    puts("Image sepia filter without SSE.");
+    test_sepia(sepia_c_file, &img, &sepia_c_inplace);
+
+    puts("Image sepia filter with SSE.");
+    test_sepia(sepia_asm_file, &img, &sepia_asm_inplace);
    
     image_free(&img);
 

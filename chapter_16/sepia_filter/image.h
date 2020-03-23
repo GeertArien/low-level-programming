@@ -14,9 +14,10 @@ struct image {
 };
 
 struct image create(uint64_t width, uint64_t height);
+struct image duplicate(const struct image* const src);
 void image_free(struct image* const img);
 
-void sepia_c_inplace(struct image* img);
-void sepia_asm_inplace(struct image* img);
+void sepia_c_inplace(struct image* const img);
+void sepia_asm_inplace(struct image* const img);
 
 #endif
